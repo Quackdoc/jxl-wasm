@@ -1,7 +1,7 @@
 async function workerMain() {
-	importScripts("../pkg/jxltranscode.js");
+	importScripts("../pkg/jxl_wasm.js");
 
-	const wasm = wasm_bindgen("../pkg/jxltranscode_bg.wasm");
+	const wasm = wasm_bindgen("../pkg/jxl_wasm_bg.wasm");
 
 	self.addEventListener("fetch", async (event) => {
 		if (event.request.method !== "GET")
@@ -58,7 +58,7 @@ async function workerMain() {
 
 async function pageMain() {
 	if ("serviceWorker" in navigator) {
-		navigator.serviceWorker.register("jxlworker.js");
+		navigator.serviceWorker.register("jxl_worker.js");
 		const reg = await navigator.serviceWorker.ready;
 
 		if (!navigator.serviceWorker.controller) {
