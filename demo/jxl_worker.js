@@ -1,21 +1,30 @@
 async function workerMain() {
-	importScripts("../pkg/jxl_wasm.js");
+	importScripts("/jxl_wasm.js");
 
-	const wasm = wasm_bindgen("../pkg/jxl_wasm_bg.wasm");
+	const wasm = wasm_bindgen("/jxl_wasm_bg.wasm");
 
 	self.addEventListener("fetch", async (event) => {
-		if (event.request.method !== "GET")
+		if (event.request.method !== "GET") {
+			console.log("not get");
 			return;
+		}
 
 		event.respondWith((async () => {
 			const res = await fetch(event.request);
 			if (!res.ok)
 				return res;
 
-			// Check if this is a JXL image.
-			const contentType = res.headers.get("Content-Type");
-			if (contentType != "image/jxl")
-				return res;
+			let contentType = res.headers.get('Content-Type')
+			if (contentType === 'application/octet-stream') {
+				let disposition = res.headers.get('Content-Disposition')
+				if (disposition && !disposition.toLowerCase().endsWith('.jxl"')) {
+				  // Is not jxl image, nothing to decode here
+				  return res
+				}
+			  } else if (contentType.toLowerCase() !== 'image/jxl') {
+				// Is not jxl image, nothing to decode here
+				return res
+			  }
 
 			// Wait for WASM to finish loading.
 			await wasm;
@@ -49,7 +58,7 @@ async function workerMain() {
 				status: res.status,
 				statusText: res.statusText,
 				headers: {
-					"Content-Type": "image/png",
+					"Content-Type": "image/apng",
 				}
 			})
 		})());
@@ -57,22 +66,30 @@ async function workerMain() {
 }
 
 async function pageMain() {
+	console.log("pagemain");
 	if ("serviceWorker" in navigator) {
 		navigator.serviceWorker.register("jxl_worker.js");
 		const reg = await navigator.serviceWorker.ready;
+		console.log("register worker");
 
 		if (!navigator.serviceWorker.controller) {
+			console.log("not navigator service worker");
 			// ServiceWorker fetch event handler not ready yet, reload.
 			setTimeout(() => {
 				window.location.reload();
 			}, 250);
 		}
+		console.log("end service worker in navigator");
+	} else {
+		console.log("service worker not in navigator");
 	}
 }
 
 if (typeof window === "undefined") {
 	workerMain();
+	console.log("undefined");
 } else {
 	pageMain();
+	console.log("not undefined");
 }
 

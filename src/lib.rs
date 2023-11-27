@@ -62,20 +62,19 @@ pub fn transcode(data: &[u8], write: &js_sys::Function) -> Result<(), TranscodeE
 	let (width, height) = (image_size.width, image_size.height);
 
 	let mut keyframes = Vec::new();
-	let mut renderer = image.renderer();
-	loop {
-		let result = renderer.render_next_frame()?;
-		match result {
-			jxl_oxide::RenderResult::Done(frame) => keyframes.push(frame),
-			jxl_oxide::RenderResult::NeedMoreData => return Err(TranscodeError::NeedMoreData),
-			jxl_oxide::RenderResult::NoMoreFrames => break,
-		}
-	}
+
+    for idx in 0..image.num_loaded_keyframes() {
+        let frame = image
+            .render_frame(idx)
+            .expect("rendering frames failed");
+        keyframes.push(frame);
+    }
+	tracing::info!(len = &keyframes.len(), "keyframe len");
 
 	// Color encoding information
-	let pixfmt = renderer.pixel_format();
-	let source_icc = renderer.rendered_icc();
-	let embedded_icc = image.embedded_icc();
+	let pixfmt = image.pixel_format();
+	let source_icc = image.rendered_icc();
+	let embedded_icc = image.original_icc();
 	let metadata = &image.image_header().metadata;
 	let colour_encoding = &metadata.colour_encoding;
 	let cicp = colour_encoding.cicp();
@@ -105,6 +104,7 @@ pub fn transcode(data: &[u8], write: &js_sys::Function) -> Result<(), TranscodeE
 
 	if let Some(animation) = &metadata.animation {
 		let num_plays = animation.num_loops;
+		//This breaks output? single frame will load without it
 		encoder.set_animated(keyframes.len() as u32, num_plays)?;
 	}
 
@@ -163,7 +163,7 @@ pub fn transcode(data: &[u8], write: &js_sys::Function) -> Result<(), TranscodeE
 			} else {
 				(numer as u16, denom as u16)
 			};
-			writer.set_frame_delay(numer, denom)?;
+		writer.set_frame_delay(numer, denom)?;
 		}
 
 		let fb = keyframe.image();
